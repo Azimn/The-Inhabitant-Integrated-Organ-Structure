@@ -7,7 +7,7 @@ import time
 import tracemalloc
 
 from .engine import Inhabitant
-from .renderers import OllamaRenderer, OpenAICompatibleRenderer
+from .renderers import OllamaRenderer, OpenAICompatibleRenderer, OllamaReasoner
 from vendor.doctor_lives.speech_emission import SpeechSinkAck, digest
 
 
@@ -76,7 +76,10 @@ def main():
             if args.command == "day":
                 result = c.day()
             elif args.command == "act":
-                result = c.decide(force=args.action or None)
+                reasoner = (OllamaReasoner(args.model or "qwen3:14b",
+                           args.url or "http://127.0.0.1:11434")
+                           if args.backend == "ollama" and not args.action else None)
+                result = c.decide(force=args.action or None, reasoner=reasoner)
             elif args.command == "status":
                 result = {"world": c.state(), "affect": c.affect(),
                           "voice_genome": c.voice_genome(), "budget": c.budget()}
