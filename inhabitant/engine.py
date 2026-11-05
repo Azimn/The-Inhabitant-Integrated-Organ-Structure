@@ -213,8 +213,11 @@ class Inhabitant:
         self.reconcile_speech()
 
     def reconcile_speech(self):
-        """The native two-phase speech journal can ACK before the main ledger append."""
-        existing = {e["payload"]["key"] for e in self.archive.events() if e["kind"] == "speech"}
+        """Recover ACKed speech and its structured meaning after interrupted delivery."""
+        entries = self.archive.events()
+        existing = {e["payload"]["key"] for e in entries if e["kind"] == "speech"}
+        intents = {e["payload"]["key"]: e["payload"]
+                   for e in entries if e["kind"] == "speech_intent"}
         db = self.speech._db
         for row in db.execute(
             "SELECT delivery_key,content,content_sha256,sink_id FROM emissions WHERE state='acknowledged'"):
@@ -222,8 +225,34 @@ class Inhabitant:
             if key not in existing:
                 if digest(text) != checksum:
                     raise ValueError("Speech ACK integrity mismatch")
+                intent = intents.get(key)
+                if intent is None:
+                    # Legacy journal entries predate durable structured intent.
+                    intent = {"semantics": {"speech_act": "unknown"},
+                              "substrate": "legacy", "drift": None, "governor": "legacy"}
+                elif intent["text"] != text:
+                    raise ValueError("Speech intent does not match acknowledged emission")
                 self.archive.append("speech", {"key": key, "text": text, "sink": sink,
-                                              "checksum": checksum, "ack": True})
+                   "checksum": checksum, "ack": True,
+                   "substrate": intent["substrate"], "drift": intent["drift"],
+                   "governor": intent["governor"],
+                   "semantics": intent["semantics"]})
+            intent = intents.get(key)
+            if intent is not None:
+                self._materialize_promise(key, intent["semantics"])
+
+    def _materialize_promise(self, delivery_key, semantics):
+        if semantics.get("speech_act") != "promise":
+            return
+        goal_id = "obligation-" + delivery_key
+        if goal_id in self.state()["goals"]:
+            return
+        self.event("goal", {
+            "goal_id": goal_id, "status": "dormant",
+            "text": semantics["obligation"], "recipient": semantics["recipient"],
+            "conditions": semantics.get("conditions", ""),
+            "speech_key": delivery_key, "reason": "delivered promise receipt",
+            "day": self.state()["day"]})
 
     def state(self):
         return self.archive.state()
@@ -583,9 +612,8 @@ class Inhabitant:
             len(text.split()) - baseline["avg_words"]) / max(1, baseline["avg_words"]))
         return text, dist
 
-    @atomic
-    def speak(self, result, sink, *, substrate="rule", renderer=None):
-        """An optional real model expresses only the Ipseity-generated packet."""
+    def speak(self, result, sink, *, substrate="rule", renderer=None, speech_act=None):
+        """Prepare durable semantics, then require exact sink ACK before lived speech."""
         if renderer is None:
             draft, _ = self.compose(result, substrate=substrate)
         else:
@@ -593,17 +621,71 @@ class Inhabitant:
             substrate = renderer.label
         text, distance, status = govern_expression(
             draft, self.voice_genome(), self.state()["name"])
+        semantics = {"action": result["action"], "success": result["success"]}
+        if speech_act is not None:
+            if speech_act.get("speech_act") not in {"promise", "fulfillment"}:
+                raise ValueError("Unknown structured speech act")
+            if not all(isinstance(v, str) and v.strip()
+                       for v in (speech_act.get("recipient"), speech_act.get("obligation"))):
+                raise ValueError("Speech obligation and recipient required")
+            semantics.update(speech_act)
         key = "utterance-" + str(self.archive.events()[-1]["seq"] + 1)
+        # Independent transaction before the external sink. If a process stops
+        # after successful emission, restart reconstruction retains semantics.
+        self.event("speech_intent", {
+            "key": key, "text": text, "substrate": substrate,
+            "drift": distance, "governor": status, "semantics": semantics})
         self.speech.prepare(key, text, before_tick=self.state()["day"], before_neural_tick=0)
-        # Native journal requires a real sink ACK before any canonical speech claim.
         receipt = self.speech.emit_once(key, sink)
         self.event("speech", {"key": key, "text": receipt.text,
                               "sink": receipt.sink_id, "checksum": receipt.content_sha256,
                               "ack": True, "substrate": substrate, "drift": distance,
-                              "governor": status,
-                              "semantics": {"action": result["action"],
-                                            "success": result["success"]}})
+                              "governor": status, "semantics": semantics})
+        self._materialize_promise(key, semantics)
         return receipt
+
+    def promise(self, recipient, obligation, sink, *, conditions=""):
+        """An obligation exists only if the promise is actually delivered."""
+        recipient, obligation = str(recipient).strip(), str(obligation).strip()
+        if not recipient or not obligation:
+            raise ValueError("Promise recipient and content are required")
+        statement = "I promise to " + obligation.rstrip(".") + "."
+        result = {"action": "promise", "success": True,
+                  "description": statement,
+                  "packet": self.subjective_packet("I intend to promise " + obligation)}
+        return self.speak(result, sink, speech_act={
+            "speech_act": "promise", "recipient": recipient,
+            "obligation": obligation, "conditions": str(conditions)})
+
+    def account_for_promise(self, obligation_id):
+        obligation = self.state()["goals"].get(obligation_id)
+        if obligation is None or not obligation_id.startswith("obligation-"):
+            raise KeyError("Unknown delivered promise")
+        return {"goal_id": obligation_id, "recipient": obligation["recipient"],
+                "obligation": obligation["text"],
+                "status": obligation["status"],
+                "conditions": obligation.get("conditions", ""),
+                "supporting_delivery": obligation["speech_key"]}
+
+    def fulfill_promise(self, obligation_id, delivered_speech_key):
+        """Mark kept only from matching, already ACKed fulfillment speech."""
+        obligation = self.account_for_promise(obligation_id)
+        if obligation["status"] != "dormant":
+            raise ValueError("Promise no longer open")
+        matches = [e["payload"] for e in self.archive.events()
+                   if e["kind"] == "speech" and e["payload"]["key"] == delivered_speech_key
+                   and e["payload"].get("ack")]
+        if not matches:
+            raise ValueError("No acknowledged fulfillment receipt")
+        semantic = matches[0].get("semantics", {})
+        if not (semantic.get("speech_act") == "fulfillment"
+                and semantic.get("recipient") == obligation["recipient"]
+                and semantic.get("obligation") == obligation["obligation"]):
+            raise ValueError("Receipt does not satisfy this obligation")
+        self.event("goal", {"goal_id": obligation_id, "status": "kept",
+                            "reason": "verified matching fulfilled speech",
+                            "outcome_speech_key": delivered_speech_key,
+                            "day": self.state()["day"]})
 
     def recount(self):
         return [{"day": e["payload"].get("day", "?"), "kind": e["kind"],
