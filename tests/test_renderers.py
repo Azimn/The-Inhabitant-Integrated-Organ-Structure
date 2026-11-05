@@ -111,5 +111,56 @@ class RendererTests(unittest.TestCase):
             self.assertEqual(c.decide()["action"], "move_garden")
 
 
+
+    def test_three_session_promise_accountability(self):
+        with Inhabitant(self.root) as c:
+            c.day()
+            receipt = c.promise("traveler", "explain the broken pump", self._sink,
+                                conditions="when the traveler returns")
+            goal_id = "obligation-" + receipt.delivery_key
+            self.assertEqual(c.account_for_promise(goal_id)["status"], "dormant")
+            self.assertEqual(c.account_for_promise(goal_id)["recipient"], "traveler")
+        with Inhabitant(self.root) as c:
+            c.day()
+            obligation = c.account_for_promise(goal_id)
+            self.assertEqual(obligation["obligation"], "explain the broken pump")
+            with self.assertRaises(ValueError):
+                c.fulfill_promise(goal_id, "nonexistent")
+            response = {"action": "answer", "success": True,
+                        "description": "I explained the broken pump to the traveler.",
+                        "packet": c.subjective_packet("The traveler returned.")}
+            confirmed = c.speak(response, self._sink, speech_act={
+                "speech_act": "fulfillment", "recipient": "traveler",
+                "obligation": "explain the broken pump"})
+            c.fulfill_promise(goal_id, confirmed.delivery_key)
+            self.assertEqual(c.account_for_promise(goal_id)["status"], "kept")
+        with Inhabitant(self.root) as c:
+            self.assertEqual(c.account_for_promise(goal_id)["status"], "kept")
+            self.assertTrue(any(e["kind"] == "speech" and
+                                e["payload"]["semantics"].get("speech_act") == "promise"
+                                for e in c.archive.events()))
+            self.assertTrue(c.archive.verify())
+
+    def test_crash_after_ack_restores_structured_promise(self):
+        key = "utterance-fixture"
+        spoken = "I promise to report the rain."
+        semantic = {"action": "promise", "success": True, "speech_act": "promise",
+                    "recipient": "traveler", "obligation": "report the rain",
+                    "conditions": "after sunrise"}
+        with Inhabitant(self.root) as c:
+            c.event("speech_intent", {"key": key, "text": spoken,
+                                     "substrate": "fixture", "drift": 0.0,
+                                     "governor": "normal", "semantics": semantic})
+            c.speech.prepare(key, spoken, before_tick=0, before_neural_tick=0)
+            c.speech.emit_once(key, self._sink)
+            self.assertFalse(any(e["kind"] == "speech" for e in c.archive.events()))
+        with Inhabitant(self.root) as c:
+            self.assertEqual(c.account_for_promise("obligation-" + key)["recipient"],
+                             "traveler")
+            spoken_events = [e for e in c.archive.events() if e["kind"] == "speech"]
+            self.assertEqual(len(spoken_events), 1)
+            self.assertEqual(spoken_events[0]["payload"]["semantics"], semantic)
+            self.assertTrue(c.archive.verify())
+
 if __name__ == "__main__":
     unittest.main()
