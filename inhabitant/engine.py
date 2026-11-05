@@ -494,7 +494,7 @@ class Inhabitant:
         self.speech.prepare(key, text, before_tick=self.state()["day"], before_neural_tick=0)
         # Native journal requires a real sink ACK before any canonical speech claim.
         receipt = self.speech.emit_once(key, sink)
-        self.event("speech", {"key": key, "text": receipt.content,
+        self.event("speech", {"key": key, "text": receipt.text,
                               "sink": receipt.sink_id, "checksum": receipt.content_sha256,
                               "ack": True, "substrate": substrate, "drift": distance,
                               "semantics": {"action": result["action"],
