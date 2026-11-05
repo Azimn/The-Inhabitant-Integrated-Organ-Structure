@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "as_of": "2026-11-04",
+  "note": "Source blobs copied in isolation; developer-owned donor code remains unmodified. Original repo branch may advance. These hashes identify exact source files, not proof of causal value.",
+  "donors": [
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/access.py",
+      "source_blob_sha": "c4b0c5d828f37600e20af642fbc6f76aa43c207d",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/access.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/cognition.py",
+      "source_blob_sha": "1d74286b069bd3df0a0a24df78c881af84a281d4",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/cognition.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/mechanics.py",
+      "source_blob_sha": "b4e95ead5430bb004f5f84febc171b5f1f1664a1",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/mechanics.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/subjective.py",
+      "source_blob_sha": "0386a2903b0372ab4f88bb39e38e1563496bd0f2",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/subjective.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/living.py",
+      "source_blob_sha": "45f5c6f25253039ffc51f3185aaaed09b0e10d71",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/living.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/living_v06.py",
+      "source_blob_sha": "e100c84c190562003196b9b4f581c6084b06ed9a",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/living_v06.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/living_v07.py",
+      "source_blob_sha": "a97236771f0060979dff50c5cec5a8e49db2b215",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/living_v07.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/living_v08.py",
+      "source_blob_sha": "6011f2a7de3093986d85e5695feb67493a4b0bb1",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/living_v08.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/DUCK",
+      "source": "duck/living_v09.py",
+      "source_blob_sha": "be5c8e85e0e11b5c3759967971f4f124a91348e5",
+      "source_tree_sha": "4db5df076eb87a40a5e57d38188821eee7ac804a",
+      "destination": "vendor/duck/living_v09.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/__init__.py",
+      "source_blob_sha": "e94dc6325c78eccf7b30eb53a82b9c587f15a8dd",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/__init__.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/dynamics.py",
+      "source_blob_sha": "df9b467029961e26bbfd2b800dfdfaed10bdc8ec",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/dynamics.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/engine.py",
+      "source_blob_sha": "d49d3c9904b576a3dfa85e842b3acfae5e95b8c5",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/engine.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/memory.py",
+      "source_blob_sha": "622d13651dd9e975636f1e572506cd0e5f454e45",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/memory.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/models.py",
+      "source_blob_sha": "28df1f0e3f912ec148716d3346349bcd81555ba8",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/models.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/operations.py",
+      "source_blob_sha": "72cc969f366dd112afa934803a0506a7588f2ebc",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/operations.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/oracle.py",
+      "source_blob_sha": "b32cf4667a7afda16d9ce3c61e1e2eaee7b7ce2f",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/oracle.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/step.py",
+      "source_blob_sha": "0379c68a4bec10d217bed36af60d28c73303eec4",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/step.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Noetic-Engine",
+      "source": "noetic_engine/store.py",
+      "source_blob_sha": "f07cd4df54e5f79e4da571a023c99d32ade0d767",
+      "source_tree_sha": "23e5e63da5b78cf4bfd1853b9e4bf7c71dabad46",
+      "destination": "vendor/noetic_engine/store.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/Sensus-Communis-Artificialis",
+      "source": "sensus_artificialis/core.py",
+      "source_blob_sha": "507cd9f75af04353b5e42d67fb60c147acff5ffb",
+      "source_tree_sha": "802e459ee68950414347d5fa324484c034f57b81",
+      "destination": "vendor/sensus_artificialis/core.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/synthetic-ipseity",
+      "source": "src/synthetic_ipseity/core.py",
+      "source_blob_sha": "00690897ce45b5aed0872d42559d0044a3b0ce40",
+      "source_tree_sha": "e612353bce2f99cb79b8e310a9e323576361dd91",
+      "destination": "vendor/synthetic_ipseity/core.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Doctor-Lives",
+      "source": "doctor_lives/speech_emission.py",
+      "source_blob_sha": "5de59a67172b9c5b3b1d09ad323f81a0ffcc89b2",
+      "source_tree_sha": "784cff39d58a7fe46bb5e4ffc16e0284e6663c78",
+      "destination": "vendor/doctor_lives/speech_emission.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/The-Doctor-Lives",
+      "source": "doctor_lives/engineer_time.py",
+      "source_blob_sha": "3fbea4000bea608474ab2dfde574e96bf65e42c4",
+      "source_tree_sha": "784cff39d58a7fe46bb5e4ffc16e0284e6663c78",
+      "destination": "vendor/doctor_lives/engineer_time.py",
+      "runtime_status": "runtime_donor"
+    },
+    {
+      "repository": "Azimn/calibos-mind",
+      "source": "calibos_mind/sleep.py",
+      "source_blob_sha": "9a9ada363c0eb9b33cf9a340db9e576c2f39aae0",
+      "source_tree_sha": "86ea54a92eceb5eae123e840074749cafcaf66cd",
+      "destination": "vendor/calibos_mind/sleep.py",
+      "runtime_status": "reference_candidate"
+    },
+    {
+      "repository": "Azimn/calibos-mind",
+      "source": "calibos_mind/mood.py",
+      "source_blob_sha": "a6434382286de732a1c400fdac5a5933862745b8",
+      "source_tree_sha": "86ea54a92eceb5eae123e840074749cafcaf66cd",
+      "destination": "vendor/calibos_mind/mood.py",
+      "runtime_status": "reference_candidate"
+    },
+    {
+      "repository": "Azimn/Pretorius-Connectome",
+      "source": "src/pretorius_connectome/associative.py",
+      "source_blob_sha": "731ca356d62cf26e33ae9cf7166e7bfee8cf605a",
+      "source_tree_sha": "5ee5c6b28e51ab84161b1956fcfc2329ab6499ea",
+      "destination": "vendor/pretorius_connectome/associative.py",
+      "runtime_status": "reference_candidate"
+    }
+  ]
+}
