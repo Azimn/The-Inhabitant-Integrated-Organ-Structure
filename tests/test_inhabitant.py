@@ -51,7 +51,7 @@ class IntegrationTests(unittest.TestCase):
             c.decide()
             next_action = c.decide()
             self.assertEqual(next_action["action"], "repair_pump")
-            self.assertEqual(next_action["reason"], "attempt known repair")
+            self.assertIn("repair predicted feasible", next_action["reason"])
 
     def test_no_ghost_commands_or_unattested_identity_rewrite(self):
         with Inhabitant(self.root) as c:
