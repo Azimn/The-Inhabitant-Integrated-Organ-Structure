@@ -1,0 +1,31 @@
+name: Inhabitant integration and causal battery
+on:
+  pull_request:
+  push:
+    branches:
+      - prototype/complete-inhabitant-v1
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile all transplanted code and orchestration
+        run: python -m compileall -q inhabitant vendor tests
+      - name: Cross-organ and persistence tests
+        run: python -m unittest discover -s tests -v
+      - name: Execute seven-day synthetic run
+        run: python -m inhabitant.cli simulate --root /tmp/inhabitant-ci --days 7 > /tmp/inhabitant-report.json
+      - name: Validate report
+        run: |
+          python - <<'PY'
+          import json
+          x = json.load(open('/tmp/inhabitant-report.json'))
+          assert x['ledger_verified'] and x['days'] == 7
+          assert x['memory_changed_route'] and x['donor_duck_goals'] > 0
+          print(json.dumps(x, indent=2))
+          PY
