@@ -6,6 +6,8 @@ Only Archive may declare world, identity, delivered speech, and commitment facts
 from __future__ import annotations
 
 from collections import Counter
+from contextlib import contextmanager
+from functools import wraps
 from dataclasses import asdict
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -41,7 +43,11 @@ def initial(name="PROTO-1"):
 
 
 class Archive:
-    """Single canonical authority. Every update is an append-only transition."""
+    """Single canonical authority, hash-chain verified against disk.
+
+    Projected state and event cache are rebuildable conveniences. One physical
+    action is one SQLite commit, not six expensive independent fsyncs.
+    """
 
     def __init__(self, path):
         self.path = str(path)
@@ -52,28 +58,82 @@ class Archive:
             seq INTEGER PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL,
             prev TEXT NOT NULL, hash TEXT NOT NULL, utc TEXT NOT NULL)""")
         self.db.commit()
+        self._event_cache = None
+        self._state_cache = None
+        self._depth = 0
 
-    def events(self):
+    def _read_events(self):
         return [{"seq": row[0], "kind": row[1], "payload": json.loads(row[2]),
                  "prev": row[3], "hash": row[4], "utc": row[5]}
                 for row in self.db.execute(
                     "SELECT seq,kind,payload,prev,hash,utc FROM events ORDER BY seq")]
 
+    def events(self):
+        if self._event_cache is None:
+            self._event_cache = self._read_events()
+        return list(self._event_cache)
+
+    @staticmethod
+    def _reduce(result, e):
+        p = e["payload"]
+        if e["kind"] == "genesis":
+            return copy.deepcopy(p)
+        if e["kind"] in {"day", "change", "action"}:
+            if result is None:
+                raise ValueError("Missing genesis")
+            for key, value in p.get("changes", {}).items():
+                result[key] = copy.deepcopy(value)
+        elif e["kind"] == "goal":
+            if result is None:
+                raise ValueError("Missing genesis")
+            old = result["goals"].get(p["goal_id"], {})
+            result["goals"][p["goal_id"]] = {**old, **copy.deepcopy(p)}
+        return result
+
+    @contextmanager
+    def batch(self):
+        outer = self._depth == 0
+        if outer:
+            events_before = len(self.events())
+            state_before = copy.deepcopy(self._state_cache)
+            self.db.execute("BEGIN IMMEDIATE")
+        self._depth += 1
+        try:
+            yield
+        except BaseException:
+            self._depth -= 1
+            if outer:
+                self.db.rollback()
+                self._event_cache = self._event_cache[:events_before]
+                self._state_cache = state_before
+            raise
+        else:
+            self._depth -= 1
+            if outer:
+                self.db.commit()
+
     def append(self, kind, payload):
         payload = copy.deepcopy(payload)
-        last = self.db.execute("SELECT seq,hash FROM events ORDER BY seq DESC LIMIT 1").fetchone()
-        seq, prev = (last[0] + 1, last[1]) if last else (1, "GENESIS")
+        entries = self.events()
+        seq, prev = ((entries[-1]["seq"] + 1, entries[-1]["hash"])
+                     if entries else (1, "GENESIS"))
         core = encode({"seq": seq, "kind": kind, "payload": payload, "prev": prev})
         checksum = sha256(core.encode()).hexdigest()
         utc = datetime.now(timezone.utc).isoformat()
-        with self.db:
-            self.db.execute("INSERT INTO events VALUES(?,?,?,?,?,?)",
-                            (seq, kind, encode(payload), prev, checksum, utc))
+        self.db.execute("INSERT INTO events VALUES(?,?,?,?,?,?)",
+                        (seq, kind, encode(payload), prev, checksum, utc))
+        if not self._depth:
+            self.db.commit()
+        event = {"seq": seq, "kind": kind, "payload": payload,
+                 "prev": prev, "hash": checksum, "utc": utc}
+        self._event_cache.append(event)
+        if self._state_cache is not None:
+            self._state_cache = self._reduce(self._state_cache, event)
         return seq
 
     def verify(self):
         prev = "GENESIS"
-        for index, e in enumerate(self.events(), 1):
+        for index, e in enumerate(self._read_events(), 1):
             core = encode({"seq": index, "kind": e["kind"],
                            "payload": e["payload"], "prev": prev})
             expected = sha256(core.encode()).hexdigest()
@@ -83,27 +143,26 @@ class Archive:
         return True
 
     def state(self):
-        result = None
-        for e in self.events():
-            p = e["payload"]
-            if e["kind"] == "genesis":
-                result = copy.deepcopy(p)
-            elif e["kind"] in {"day", "change", "action"}:
-                if result is None:
-                    raise ValueError("Missing genesis")
-                for key, value in p.get("changes", {}).items():
-                    result[key] = copy.deepcopy(value)
-            elif e["kind"] == "goal":
-                if result is None:
-                    raise ValueError("Missing genesis")
-                old = result["goals"].get(p["goal_id"], {})
-                result["goals"][p["goal_id"]] = {**old, **p}
-        if result is None:
-            raise ValueError("Missing genesis")
-        return result
+        if self._state_cache is None:
+            value = None
+            for e in self.events():
+                value = self._reduce(value, e)
+            if value is None:
+                raise ValueError("Missing genesis")
+            self._state_cache = value
+        return copy.deepcopy(self._state_cache)
 
     def close(self):
         self.db.close()
+
+
+def atomic(fn):
+    """A waking action commits one ledger transaction, including organ receipts."""
+    @wraps(fn)
+    def wrapped(self, *args, **kwargs):
+        with self.archive.batch():
+            return fn(self, *args, **kwargs)
+    return wrapped
 
 
 class Inhabitant:
@@ -169,6 +228,7 @@ class Inhabitant:
     def event(self, kind, payload):
         return self.archive.append(kind, payload)
 
+    @atomic
     def intake(self, text, *, source="", attested=False, evidence="told"):
         """Do not trust claimed evidence classes from input text or callers."""
         if not source or not attested or evidence not in {"observed", "told", "inferred"}:
@@ -233,7 +293,9 @@ class Inhabitant:
             return []
         terms = set(re.findall(r"\w+", query.lower()))
         scored = []
-        for e in self.archive.events():
+        entries = self.archive.events()
+        last_seq = entries[-1]["seq"] if entries else 1
+        for e in entries:
             if e["kind"] not in ({"perception", "action", "speech"} |
                                   ({"dream"} if include_dreams else set())):
                 continue
@@ -243,7 +305,7 @@ class Inhabitant:
             words = set(re.findall(r"\w+", txt.lower()))
             overlap = len(terms & words) / max(1, len(terms | words))
             priority = .10 if e["kind"] == "action" else .04
-            score = .65 * overlap + .25 * (e["seq"] / max(1, self.archive.events()[-1]["seq"])) + priority
+            score = .65 * overlap + .25 * (e["seq"] / max(1, last_seq)) + priority
             if overlap or "failure" in txt.lower() or e["kind"] == "action":
                 scored.append((score, e["seq"], {"event_id": e["seq"],
                                                 "text": txt, "provenance": source}))
@@ -275,6 +337,7 @@ class Inhabitant:
         return {"fear": round(fear, 3), "curiosity": round(curiosity, 3),
                 "fatigue": s["body"]["fatigue"]}
 
+    @atomic
     def day(self):
         s = self.state()
         body = dict(s["body"])
@@ -284,7 +347,10 @@ class Inhabitant:
         if s["door"] == "open":
             body["cold"] = min(1., body["cold"] + .18)
         day = s["day"] + 1
-        self.event("day", {"changes": {"day": day, "body": body}})
+        changes = {"day": day, "body": body}
+        if day in (4, 6):
+            changes.update({"rain": 2, "weather": "rain"})
+        self.event("day", {"changes": changes})
         if day in (2, 5):
             self.event("visitor", {"day": day, "text": "A traveler asks whether the pump is safe."})
             self.intake("A traveler asks whether the pump is safe.", source="visitor",
@@ -309,6 +375,7 @@ class Inhabitant:
             self.duck.form_goal("overcome", "Find a sustainable water source")
             self.event("duck_projection", {"state": self.duck.state.to_dict()})
 
+    @atomic
     def world_disruption(self, *, pump="broken", spare_part=False):
         """Authoritative external intervention, never generated by the renderer."""
         self.event("change", {"changes": {"pump": pump, "spare_part": bool(spare_part)}})
@@ -347,6 +414,7 @@ class Inhabitant:
             return "rest", "fatigue"
         return "inspect", "open initiative"
 
+    @atomic
     def decide(self, *, force=None):
         started = time.perf_counter()
         state_before = self.state()
@@ -461,6 +529,7 @@ class Inhabitant:
         changes["body"] = body
         return description, success, changes
 
+    @atomic
     def dream(self, seed=None):
         s = self.state()
         basis = self.recall("water travel repair", limit=4)
@@ -488,6 +557,7 @@ class Inhabitant:
             len(text.split()) - baseline["avg_words"]) / max(1, baseline["avg_words"]))
         return text, dist
 
+    @atomic
     def speak(self, result, sink, *, substrate="rule"):
         text, distance = self.compose(result, substrate=substrate)
         key = "utterance-" + str(self.archive.events()[-1]["seq"] + 1)
