@@ -112,3 +112,41 @@ def govern_expression(text, genome, canonical_name):
         len(text.split()) - genome["avg_words"]) / max(1., genome["avg_words"]))
     status = "normal" if drift < .50 else "drift_measured"
     return text, round(drift, 4), status
+
+
+
+class ScriptedReasoner:
+    """Reproducible decision-substrate fixture, not a trained model."""
+    def __init__(self, action, label="scripted-reasoner"):
+        self.action = action
+        self.label = label
+
+    def propose(self, subject_name, subjective_packet, allowed):
+        return self.action
+
+
+class OllamaReasoner(OllamaRenderer):
+    """LLM-powered Noesis proposal, limited to explicitly allowed physical actions."""
+    def propose(self, subject_name, subjective_packet, allowed):
+        prompt = (
+            "A simulated inhabitant called " + subject_name +
+            " must select a single voluntary action. This is not authority to "
+            "modify any world state, records, promises or identity. "
+            "Allowed actions: " + ", ".join(allowed) + ". "
+            "Respond with only a JSON object containing an action field. "
+            "Accessible experience:\n" + subjective_packet
+        )
+        payload = {"model": self.model, "prompt": prompt, "stream": False,
+                   "format": "json", "options": {"temperature": 0.15, "num_predict": 72}}
+        request = Request(self.url + "/api/generate",
+                          data=json.dumps(payload).encode(),
+                          headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                data = json.load(response)
+            proposed = json.loads(data["response"])["action"]
+            if not isinstance(proposed, str):
+                raise ValueError("Expected action string")
+            return proposed
+        except Exception as exc:
+            raise RendererError("Ollama Noesis proposal failed") from exc
