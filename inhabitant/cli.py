@@ -2,7 +2,10 @@
 import argparse
 import json
 from pathlib import Path
-import resource
+try:
+    import resource
+except ImportError:
+    resource = None  # Windows has no Unix resource module.
 import time
 import tracemalloc
 
@@ -50,7 +53,8 @@ def simulate(root, days=7, *, speak=False, disabled=()):
             "budget": creature.budget(),
             "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
             "peak_python_bytes": tracemalloc.get_traced_memory()[1],
-            "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+            "peak_rss_kib": (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                             if resource is not None else None),
             "worst_decision_ms": max(x["latency_ms"] for x in decisions),
             "recount_receipts": len(creature.recount()),
         }
