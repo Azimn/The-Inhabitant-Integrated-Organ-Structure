@@ -7,6 +7,7 @@ import time
 import tracemalloc
 
 from .engine import Inhabitant
+from .renderers import OllamaRenderer, OpenAICompatibleRenderer
 from vendor.doctor_lives.speech_emission import SpeechSinkAck, digest
 
 
@@ -63,6 +64,9 @@ def main():
     parser.add_argument("--root", default=".inhabitant-state")
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--action", default="")
+    parser.add_argument("--backend", choices=["rule", "ollama", "compatible"], default="rule")
+    parser.add_argument("--model", default="")
+    parser.add_argument("--url", default="")
     parser.add_argument("--disable", action="append", default=[])
     args = parser.parse_args()
     if args.command == "simulate":
@@ -84,7 +88,14 @@ def main():
                 result = {"dream": c.dream()}
             elif args.command == "speak":
                 outcome = c.decide()
-                receipt = c.speak(outcome, console_sink)
+                if args.backend == "ollama":
+                    renderer = OllamaRenderer(args.model or "qwen3:14b",
+                                              args.url or "http://127.0.0.1:11434")
+                elif args.backend == "compatible":
+                    renderer = OpenAICompatibleRenderer(args.model, args.url)
+                else:
+                    renderer = None
+                receipt = c.speak(outcome, console_sink, renderer=renderer)
                 result = {"emission": receipt.delivery_key, "acknowledged": True}
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
