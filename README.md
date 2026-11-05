@@ -225,3 +225,10 @@ memory of a dream, not a memory of the events dreamed.
 - **Q5.** Naming: the Greek names carry the six-organ lineage; Jay's
   dictated names are plainer. Which register does the integrated
   structure publish in?
+
+
+## Executable prototype (experimental)
+
+The standalone, synthetic **PROTO-1** implementation is on branch `prototype/complete-inhabitant-v1`, proposed in [pull request #3](https://github.com/Azimn/The-Inhabitant-Integrated-Organ-Structure/pull/3). Full installation, code provenance, test commands, and candid scope limitations appear in [PROTOTYPE_IMPLEMENTATION.md](PROTOTYPE_IMPLEMENTATION.md).
+
+The older design text above remains a historical draft, not retroactively ratified by the code. PROTO-1 has no imported biography, and no Pretorius, Kiki, or Calibos living state was transferred. The executable experiment is designed to answer continuity and conduct questions with receipts, not to make consciousness claims. All donor repositories remain unchanged.
