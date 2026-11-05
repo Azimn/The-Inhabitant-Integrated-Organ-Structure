@@ -66,7 +66,7 @@ def main():
     parser.add_argument("--disable", action="append", default=[])
     args = parser.parse_args()
     if args.command == "simulate":
-        result = simulate(args.root, args.days, disabled=args.disable, speak=True)
+        result = simulate(args.root, args.days, disabled=args.disable, speak=False)
     else:
         with Inhabitant(args.root, disabled=args.disable) as c:
             if args.command == "day":
