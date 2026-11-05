@@ -26,6 +26,8 @@ from vendor.duck.living_v09 import LivingDuck
 from vendor.noetic_engine.engine import NoeticEngine
 from vendor.noetic_engine.models import Configuration, Observation, EvidenceClass
 from vendor.doctor_lives.speech_emission import SpeechEmissionJournal, SpeechSinkAck, digest
+from vendor.calibos_mind.sleep import assert_isolation
+from .renderers import govern_expression
 
 
 def encode(value):
@@ -538,6 +540,9 @@ class Inhabitant:
         content = "A quiet room contains " + rng.choice(fragments)[:120] + " beside a silent clock."
         self.event("dream", {"text": content, "class": "dreamed", "day": s["day"],
                               "cause_event_ids": [m["event_id"] for m in basis]})
+        # Native Calibos dream isolation contract: no world or action trace mutation.
+        assert_isolation({"world": s, "action_trace": []},
+                         {"world": self.state(), "action_trace": []})
         return content
 
     def voice_genome(self):
@@ -558,8 +563,15 @@ class Inhabitant:
         return text, dist
 
     @atomic
-    def speak(self, result, sink, *, substrate="rule"):
-        text, distance = self.compose(result, substrate=substrate)
+    def speak(self, result, sink, *, substrate="rule", renderer=None):
+        """An optional real model expresses only the Ipseity-generated packet."""
+        if renderer is None:
+            draft, _ = self.compose(result, substrate=substrate)
+        else:
+            draft = renderer.render(self.state()["name"], result["packet"])
+            substrate = renderer.label
+        text, distance, status = govern_expression(
+            draft, self.voice_genome(), self.state()["name"])
         key = "utterance-" + str(self.archive.events()[-1]["seq"] + 1)
         self.speech.prepare(key, text, before_tick=self.state()["day"], before_neural_tick=0)
         # Native journal requires a real sink ACK before any canonical speech claim.
@@ -567,6 +579,7 @@ class Inhabitant:
         self.event("speech", {"key": key, "text": receipt.text,
                               "sink": receipt.sink_id, "checksum": receipt.content_sha256,
                               "ack": True, "substrate": substrate, "drift": distance,
+                              "governor": status,
                               "semantics": {"action": result["action"],
                                             "success": result["success"]}})
         return receipt
