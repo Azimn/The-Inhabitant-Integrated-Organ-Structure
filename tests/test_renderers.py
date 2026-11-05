@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from inhabitant.engine import Inhabitant
-from inhabitant.renderers import ScriptedRenderer, govern_expression
+from inhabitant.renderers import ScriptedRenderer, ScriptedReasoner, govern_expression
 from vendor.doctor_lives.speech_emission import SpeechSinkAck, SpeechEmissionUncertain, digest
 
 
@@ -80,6 +80,35 @@ class RendererTests(unittest.TestCase):
             c.dream(seed=17)
             self.assertEqual(c.state(), original)
             self.assertTrue(c.archive.verify())
+
+
+
+    def test_model_proposal_has_causal_action_but_no_authority(self):
+        with Inhabitant(self.root) as c:
+            c.day()
+            c.world_disruption()
+            for _ in range(4):
+                c.decide()
+            self.assertEqual(c.state()["stocks"]["water"], 3)
+            result = c.decide(reasoner=ScriptedReasoner("move_cabin"))
+            self.assertEqual(result["action"], "move_cabin")
+            self.assertIn("constrained model", result["reason"])
+            self.assertEqual(c.state()["place"], "cabin")
+            self.assertTrue(any(e["kind"] == "model_proposal" and
+                                e["payload"]["accepted"] for e in c.archive.events()))
+            rejected = c.decide(reasoner=ScriptedReasoner("rewrite_identity"))
+            self.assertEqual(rejected["action"], "inspect")
+            self.assertEqual(c.state()["name"], "PROTO-1")
+
+    def test_affect_ablation_changes_approach_after_failure(self):
+        with Inhabitant(self.root, disabled=("affectus",)) as c:
+            c.day()
+            c.world_disruption()
+            c.decide()
+            c.decide()
+            tentative = c.decide()
+            self.assertEqual(tentative["action"], "inspect")
+            self.assertEqual(c.decide()["action"], "move_garden")
 
 
 if __name__ == "__main__":
