@@ -400,6 +400,13 @@ class Inhabitant:
                 failed = False
             # The rain source was not a predefined branch of DUCK's repair routes.
             if failed:
+                if "affectus" in self.disabled and not any(
+                    e["kind"] == "action" and
+                    e["payload"].get("reason") == "neutral review before alternate"
+                    for e in self.archive.events()
+                ):
+                    return "inspect", "neutral review before alternate"
+                # Apprehension makes the previously unsuccessful approach less attractive.
                 return ("collect_rain" if s["place"] == "garden" else "move_garden",
                         "new route inferred from actual failed repair memory")
             return ("repair_pump" if s["place"] == "workshop" else "move_workshop",
@@ -417,7 +424,7 @@ class Inhabitant:
         return "inspect", "open initiative"
 
     @atomic
-    def decide(self, *, force=None):
+    def decide(self, *, force=None, reasoner=None):
         started = time.perf_counter()
         state_before = self.state()
         if force and force not in self.actions():
@@ -430,6 +437,19 @@ class Inhabitant:
         # Noetic decisions influence initiative rather than rewrite the action.
         if not force and noetic_choice == "protect" and affect["fear"] > .72 and action == "inspect":
             action, rationale = "move_cabin", "Noetic protective override"
+        if reasoner is not None and force is None and action == "inspect":
+            allowed = ("inspect", "rest", "close_door", "open_door",
+                       "move_cabin", "move_spring", "move_garden", "move_workshop")
+            if "noesis" not in self.disabled:
+                proposal = reasoner.propose(
+                    state_before["name"], self.subjective_packet("I can decide what to do."), allowed)
+                accepted = proposal in allowed
+                self.event("model_proposal", {
+                    "model": reasoner.label, "proposed_action": str(proposal)[:100],
+                    "accepted": accepted, "allowed": list(allowed)})
+                if accepted:
+                    action, rationale = proposal, "Noesis admitted a constrained model proposal"
+            # Removing Noesis removes model causal influence, not Corpus safeguards.
         description, success, changes = self._act(action, state_before)
         self.event("action", {"action": action, "description": description,
                               "text": action + (" success: " if success else " failure: ") + description,
